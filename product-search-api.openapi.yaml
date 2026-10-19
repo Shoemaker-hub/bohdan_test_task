@@ -7,24 +7,6 @@ info:
     Products can be searched by name, category and keywords, filtered by price range
     and sorted by relevance or price.
 
-    Assumptions:
-    - The endpoint is POST /products/list. The request body is optional.
-    - `filter.search` is the keyword to look for (1-256 characters).
-    - `filter.searchable_fields` lists the fields to search in (one, two or all).
-      `search` and `searchable_fields` must be sent together, otherwise 400.
-    - Prices and ratings are integers (whole numbers).
-    - Price range is inclusive; `from` must not be greater than `to`.
-    - `available_fields` lists the fields returned for each product (all if omitted).
-    - If `sort` is sent, each rule must contain both `field` and `direction`.
-      An empty `sort` array is invalid.
-    - Default sort (when `sort` is omitted) is `relevance` descending (best match first).
-      Without `filter.search` all products are equally relevant, so they are ordered
-      by `product_id`. Products with equal sort values are also ordered by
-      `product_id`, so pagination is stable.
-    - `limit` and `offset` are optional query parameters. If they are not sent,
-      the first 20 products are returned (`limit` = 20, `offset` = 0).
-    - `limit`: min 1 (0 is not allowed), max 1000. `offset`: min 0 (0 is allowed), max 500000.
-    - Invalid input returns 400, never 500.
 tags:
   - name: Products
     description: Operations with products
@@ -118,7 +100,6 @@ components:
                 to: { type: integer, minimum: 0 }
         sort:
           type: array
-          description: Sort rules. If omitted, results are sorted by relevance, best match first.
           minItems: 1
           default:
             - field: relevance
