@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: Products API
+  version: 1.0.0
+  description: |
+    Returns a list of products. By default (empty body or `{}`) it returns all products.
+    Products can be searched by name, category and keywords, filtered by price range
+    and sorted by relevance or price.
+
+    Assumptions:
+    - The endpoint is POST /products/list. The request body is optional.
+    - `filter.search` is the keyword to look for (1-256 characters).
+    - `filter.searchable_fields` lists the fields to search in (one, two or all).
+      `search` and `searchable_fields` must be sent together, otherwise 400.
+    - Prices and ratings are integers (whole numbers).
+    - Price range is inclusive; `from` must not be greater than `to`.
+    - `available_fields` lists the fields returned for each product (all if omitted).
+    - If `sort` is sent, each rule must contain both `field` and `direction`.
+      An empty `sort` array is invalid.
+    - Default sort (when `sort` is omitted) is `relevance` descending (best match first).
+      Without `filter.search` all products are equally relevant, so they are ordered
+      by `product_id`. Products with equal sort values are also ordered by
+      `product_id`, so pagination is stable.
+    - `limit` and `offset` are optional query parameters. If they are not sent,
+      the first 20 products are returned (`limit` = 20, `offset` = 0).
+    - `limit`: min 1 (0 is not allowed), max 1000. `offset`: min 0 (0 is allowed), max 500000.
+    - Invalid input returns 400, never 500.
+tags:
+  - name: Products
+    description: Operations with products
+paths:
+  /products/list:
+    post:
+      tags: [Products]
+      summary: Get a list of products (with optional filters, search and sorting)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Number of products to return. Min 1, max 1000.
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 20 }
+        - name: offset
+          in: query
+          required: false
+          description: Number of products to skip. Min 0, max 500000.
+          schema: { type: integer, minimum: 0, maximum: 500000, default: 0 }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductListRequest'
+            examples:
+              allProducts:
+                summary: No filters, returns all products
+                value: {}
+              fullRequest:
+                summary: Search, price range, sorting and returned fields
+                value:
+                  available_fields: [product_name, product_price, product_category]
+                  filter:
+                    search: gaming laptop
+                    searchable_fields: [product_name, product_keywords]
+                    price_range: { from: 500, to: 1500 }
+                  sort:
+                    - { field: price, direction: asc }
+      responses:
+        '200':
+          description: List of products (items can be empty).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: filter.search must be at most 256 characters long
+components:
+  schemas:
+    ProductListRequest:
+      type: object
+      properties:
+        available_fields:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum:
+              - product_id
+              - product_name
+              - product_description
+              - product_price
+              - product_category
+              - product_subcategory
+              - product_keywords
+              - product_rating
+        filter:
+          type: object
+          properties:
+            search:
+              type: string
+              minLength: 1
+              maxLength: 256
+            searchable_fields:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                enum: [product_name, product_category, product_keywords]
+            price_range:
+              type: object
+              properties:
+                from: { type: integer, minimum: 0 }
+                to: { type: integer, minimum: 0 }
+        sort:
+          type: array
+          description: Sort rules. If omitted, results are sorted by relevance, best match first.
+          minItems: 1
+          default:
+            - field: relevance
+              direction: desc
+          items:
+            type: object
+            required: [field, direction]
+            properties:
+              field:
+                type: string
+                enum: [relevance, price]
+              direction:
+                type: string
+                enum: [asc, desc]
+    ProductListResponse:
+      type: object
+      properties:
+        total: { type: integer, example: 42 }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string, example: "1001" }
+              product_name: { type: string, example: Lenovo Legion 5 Gaming Laptop }
+              product_description: { type: string }
+              product_price: { type: integer, example: 1199 }
+              product_category: { type: string, example: Laptops }
+              product_subcategory: { type: string, example: Gaming laptops }
+              product_keywords:
+                type: array
+                items: { type: string }
+              product_rating: { type: integer, example: 4 }
+    Error:
+      type: object
+      properties:
+        message: { type: string }
